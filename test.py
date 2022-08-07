@@ -82,6 +82,7 @@ def process_post(post):
 
 x = 0
 sqlite = sqlite3.connect("database.sqlite")
+"""-----------------------------------------------------------"""
 
 # make a cursor
 cursor_obj = sqlite.cursor()
@@ -100,7 +101,21 @@ if output[0][0] is not None:
     x = output[0][0]
 
 print("x is ", x)
+"""-----------------------------------------------------------"""
+# split tags 
+#post_tags = post["tag_string"]
+#print(post_tags.split( ))
+# tag url
+# search tags 1 x 1 using the tag url
+# json file
+# get the ID, name, category
 
+
+tag = None
+tag_url = "https://danbooru.donmai.us/tags.json?commit=Search&search%5Bname_or_alias_matches%5D=" + str(tag)
+
+
+"""-----------------------------------------------------------"""
 while True:
     t = localtime()
     current_time = strftime("%T", t)
@@ -116,11 +131,11 @@ while True:
     c_url = "https://danbooru.donmai.us/posts.json?page=a" +  str(x) + "&limit=" + str(limit)
  
     # print url (debugging)
-    print(c_url)
+    print("Post link: ", c_url)
      
     while True:
         # ask the internet to give us the contents of the page given URL
-        sleep(1)
+        sleep(2)
         response = requests.get(c_url)
         
         # print the response (debugging)
@@ -174,7 +189,42 @@ while True:
         image_check = process_post(
             post
         )
-
+        """-----------------------------------------------------------"""
+        tags = post["tag_string"]
+        post_tags = tags.split( )
+        
+        
+        
+        for tag in post_tags:
+            
+            tag_url = "https://danbooru.donmai.us/tags.json?commit=Search&search%5Bname_or_alias_matches%5D=" + str(tag)
+            
+            count_cursor = sqlite.cursor()
+            entry_count = count_cursor.execute("SELECT id FROM tag WHERE name = '{}'".format(tag.replace("'","''")))
+            sqlite.commit()
+            counter = entry_count.fetchall()
+            
+            if len(counter) >= 1:
+                continue
+            
+            sleep(2)
+            search_tags = requests.get(tag_url)
+            tags_text = search_tags.text
+            loads_tags = loads(tags_text)
+            
+            print("Adding the following tag to the database:", loads_tags[0]["name"])
+            
+            search_cursor = sqlite.cursor()
+            search_cursor.execute(
+                "INSERT or ignore INTO tag (id, name, category) values ( {}, '{}', {});".format(
+                    loads_tags[0]["id"],
+                    loads_tags[0]["name"].replace("'","''"),
+                    loads_tags[0]["category"]
+                )
+            )
+            sqlite.commit()
+            
+        """-----------------------------------------------------------"""
         if not image_check:
             print("Refused to download.")
             print("------------------------")
@@ -185,7 +235,7 @@ while True:
         print("Image Width:", post["image_width"])
         print("Image Height:", post["image_height"])
         
-        sleep(1)
+        sleep(2)
         image_download = requests.get(post["file_url"])
         file_name = "image" + str(post["id"]) + "." + post["file_ext"]
         
@@ -196,3 +246,8 @@ while True:
         
     if len(posts) < 200: 
         break
+        
+
+
+
+
